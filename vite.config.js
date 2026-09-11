@@ -26,6 +26,7 @@
  */
 
 import fs from 'node:fs';
+import { placeSearchProxy } from './scripts/place-search-proxy.mjs';
 import os from 'node:os';
 import { promises as fsp } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -7740,6 +7741,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       cesium(),
+      placeSearchProxy(),
       openSkyProxy(),
       celestrakProxy(),
       tomtomProxy(),
