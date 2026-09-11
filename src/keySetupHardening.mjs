@@ -9,7 +9,9 @@ import {
 /** PowerShell verification for the exact owner-only Windows credential DACL. */
 const WINDOWS_ACL_VERIFY_SCRIPT = [
   "$ErrorActionPreference = 'Stop'",
-  '$acl = Get-Acl -LiteralPath $env:GEV_ACL_FILE',
+  // Use the native .NET Framework API in Windows PowerShell. A caller's
+  // PowerShell 7 module path can prevent Get-Acl's module from autoloading.
+  '$acl = [System.IO.File]::GetAccessControl($env:GEV_ACL_FILE)',
   'if (-not $acl.AreAccessRulesProtected) { exit 2 }',
   "$allowed = @($env:GEV_ACL_USER_SID, 'S-1-5-18', 'S-1-5-32-544')",
   '$seen = @{}',

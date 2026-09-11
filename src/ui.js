@@ -9258,6 +9258,16 @@ export class StyleManager {
    */
   _initLocationBar() {
     const QWERTY_KEYS = ['Q', 'W', 'E', 'R', 'T'];
+    const usesGoogleSearch = Boolean(window.__GOOGLE_MAPS_API_KEY__ || import.meta.env?.GOOGLE_MAPS_API_KEY);
+    this._locationSearch.placeholder = usesGoogleSearch ? 'Search Google Maps…' : 'Search locations…';
+    this._locationSearch.setAttribute('aria-label', usesGoogleSearch ? 'Search locations with Google Maps' : 'Search locations');
+    const searchCredit = document.createElement('a');
+    searchCredit.href = usesGoogleSearch ? 'https://maps.google.com/' : 'https://www.openstreetmap.org/copyright';
+    searchCredit.target = '_blank';
+    searchCredit.rel = 'noopener noreferrer';
+    searchCredit.textContent = usesGoogleSearch ? 'Location search · Google Maps' : 'Keyless search: © OpenStreetMap contributors · Photon';
+    searchCredit.style.cssText = 'font-size:12px;color:inherit;display:block';
+    this._locationSearch.insertAdjacentElement('afterend', searchCredit);
 
     // Render city pills (no submenu wrappers — POI row is separate)
     for (const [cityId, city] of Object.entries(CITY_POIS)) {
@@ -9336,7 +9346,7 @@ export class StyleManager {
         } catch (err) {
           console.error('[Search] Geocoding failed:', err);
           if (this._disposed || generation !== this._navigationGeneration) return;
-          this._showToast('Search failed');
+          this._showToast(err.userMessage || 'Search could not connect. Check your connection and try again.');
         } finally {
           this._settleLocationSearchUi(generation);
         }

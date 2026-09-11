@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import * as Cesium from 'cesium';
+import { normalizePhotonPlace } from './data/placeSearch.js';
 import {
   CANCELLED_SEARCH,
   placeFramingViewport,
@@ -52,6 +53,39 @@ const AUSTIN_RESULT = {
     },
   },
 };
+
+test('keyless Photon city results preserve coordinate order and viewport framing', async () => {
+  const result = normalizePhotonPlace({ geometry: { coordinates: [-97.7, 30.2] }, properties: {
+    name: 'Sample City', type: 'city', extent: [-98, 30.5, -97.4, 30],
+  } });
+  assert.deepEqual(result.geometry.location, { lat: 30.2, lng: -97.7 });
+  assert.deepEqual(result.geometry.viewport, { southwest: { lat: 30, lng: -98 }, northeast: { lat: 30.5, lng: -97.4 } });
+  assert.equal(normalizePhotonPlace({ geometry: { coordinates: [0, 999] } }), null);
+  const previousWindow = globalThis.window;
+  const previousFetch = globalThis.fetch;
+  globalThis.window = {};
+  const requested = [];
+  globalThis.fetch = async url => { requested.push(url); return { ok: true, json: async () => ({ status: 'OK', results: [result] }) }; };
+  try {
+    const viewer = stubViewer();
+    const destination = await searchAndFlyTo(viewer, 'Sample City');
+    assert.equal(destination.navigationMode, 'city-overview');
+    assert.equal(viewer.flights.length, 1);
+    assert.deepEqual(requested, ['/api/location-search?q=Sample%20City']);
+    const cancelled = await searchAndFlyTo(viewer, 'Sample City', { beforeFly: () => false });
+    assert.equal(cancelled, CANCELLED_SEARCH);
+    assert.equal(viewer.flights.length, 1);
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ status: 'ZERO_RESULTS', results: [] }) });
+    assert.equal(await searchAndFlyTo(viewer, 'unknown'), null);
+    globalThis.fetch = async () => ({ ok: false, json: async () => ({ error: 'unavailable' }) });
+    await assert.rejects(searchAndFlyTo(viewer, 'Sample City'), error => error.userMessage.includes('unavailable'));
+    assert.equal(viewer.flights.length, 1);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});
 
 async function runSearch(viewer, options, { result = AUSTIN_RESULT, query = 'austin' } = {}) {
   const hadWindow = Object.hasOwn(globalThis, 'window');
